@@ -36,6 +36,7 @@ bool at_pressure = false;
 int ticks_at_pressure = 0;
 bool result = false;
 bool test_running = false;
+bool test_reset = false;
 // long test time
 unsigned long test_start_millis = 0;
 unsigned long pressure_ok_millis = 0;
@@ -56,15 +57,27 @@ void loop() {
     test_tick();
   }
 
-  // Otherwise, we check to see if the switch is activated.
+  // Test to see if the switch has been switched again to low, otherwise the
+  // test would continually run while the switch was switched high
+  else if (digitalRead(SWITCH) == LOW) {
+    Serial.print("Now ready to start test");
+    test_reset = true;
+  }
+
+  // Check to see if the switch is activated, and test has been reset
   // If so, we start the test
-  else if (digitalRead(SWITCH) == HIGH) {
+  else if (test_reset && digitalRead(SWITCH) == HIGH) {
+    Serial.print("Starting pressure test...");
     start_test();
   }
 
   // Test is not running, and we have no switch input
+  // Print a message every second
   else {
-    Serial.print("Pressure test waiting for switch input");
+    if (millis() - last_print_time >= SERIAL_PRINT_DELAY) {
+      Serial.print("Pressure test waiting for switch input");
+      last_print_time = millis();
+    }
   }
 
   // Wait
@@ -88,6 +101,7 @@ void start_test() {
 /// Reset values of state variables
 void reset_state() {
   test_running = false;
+  test_reset = false;
   at_pressure = false;
   ticks_at_pressure = 0;
   result = false;
@@ -170,7 +184,11 @@ void test_tick() {
 
 /// Stop the test
 void stop_test() {
+  // Update state
   test_running = false;
+
+  // Turn off the pump
+  digitalWrite(PUMP_CONTROL, HIGH);
 }
 
 // TODO:
