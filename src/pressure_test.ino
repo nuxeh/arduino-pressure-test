@@ -191,7 +191,7 @@ void stop_test() {
   test_running = false;
 
   // Turn off the pump
-  digitalWrite(PUMP_CONTROL, HIGH);
+  digitalWrite(PUMP_CONTROL, LOW);
 }
 
 // TODO:
