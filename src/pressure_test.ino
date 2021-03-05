@@ -60,14 +60,17 @@ void loop() {
   // Test to see if the switch has been switched again to low, otherwise the
   // test would continually run while the switch was switched high
   else if (digitalRead(SWITCH) == LOW) {
-    Serial.print("Now ready to start test");
+    if (millis() - last_print_time >= SERIAL_PRINT_DELAY) {
+      Serial.println("Now ready to start test");
+      last_print_time = millis();
+    }
     test_reset = true;
   }
 
   // Check to see if the switch is activated, and test has been reset
   // If so, we start the test
   else if (test_reset && digitalRead(SWITCH) == HIGH) {
-    Serial.print("Starting pressure test...");
+    Serial.println("Starting pressure test...");
     start_test();
   }
 
@@ -75,7 +78,7 @@ void loop() {
   // Print a message every second
   else {
     if (millis() - last_print_time >= SERIAL_PRINT_DELAY) {
-      Serial.print("Pressure test waiting for switch input");
+      Serial.println("Pressure test waiting for switch input");
       last_print_time = millis();
     }
   }
