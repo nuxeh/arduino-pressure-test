@@ -9,9 +9,6 @@
 
 #include <Arduino.h>
 
-
-
-
 // Pins
 #define PRESSURE_SENSOR A5
 #define PUMP_CONTROL 3
@@ -98,10 +95,8 @@ void loop() {
     at_pressure = false;
   }
 
-
   Serial.print("milliseconds at pressure: ");//uncommented
   Serial.println(milliseconds_at_pressure);//uncommented
-
 
   unsigned long pressure_ok_millis = millis() - pressure_ok_start;
 
@@ -110,11 +105,9 @@ void loop() {
     if (pressure_ok_millis > (TEST_TIME * 1000)) {
       result = true;
     }
+  } else {
+    pressure_ok_millis = 0;
   }
-  else {
-    pressure_ok_millis=0;
-  }
-
 
   // Print result
   Serial.print("result: ");
