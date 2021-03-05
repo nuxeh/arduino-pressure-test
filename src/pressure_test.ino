@@ -43,28 +43,46 @@ unsigned long last_print_time = 0;
 
 void setup() {
   Serial.begin(115200);
-  Serial.print("Pressure test waiting for switch input");
 
-  // Wait for switch pin to go low
   pinMode(SWITCH, INPUT_PULLUP);
-  while (digitalRead(SWITCH) == LOW) {
-    delay(50);
-  }
-
-  // Turn on the pump at start-up
-  pinMode(PUMP_CONTROL, OUTPUT);
-  digitalWrite(PUMP_CONTROL, HIGH);
-
   pinMode(LED, OUTPUT);
-
+  pinMode(PUMP_CONTROL, OUTPUT);
 }
 
 void loop() {
   // Run update function for test
-  test_tick();
+  // (only if the state variable says the test is currently running)
+  if (test_running) {
+    test_tick();
+  }
+
+  // Otherwise, we check to see if the switch is activated.
+  // If so, we start the test
+  else if (digitalRead(SWITCH) == HIGH) {
+    start_test();
+  }
+
+  // Test is not running, and we have no switch input
+  else {
+    Serial.print("Pressure test waiting for switch input");
+  }
 
   // Wait
   delay(100);
+}
+
+void start_test() {
+  // Reset our state variables
+  reset_state();
+
+  // Record test start time
+  test_start_millis = millis();
+
+  // Turn on the pump
+  digitalWrite(PUMP_CONTROL, HIGH);
+
+  // Set test running state variable
+  test_running = true;
 }
 
 /// Reset values of state variables
@@ -78,14 +96,7 @@ void reset_state() {
   last_print_time = 0;
 }
 
-void start_test() {
-  // Reset our state variables
-  reset_state();
-
-  // Record test start time
-  test_start_millis = millis();
-}
-
+/// Do work for a running test
 void test_tick() {
   int raw = analogRead(PRESSURE_SENSOR);
 
@@ -138,6 +149,9 @@ void test_tick() {
   if (result) {
     Serial.println("PASSED");
     digitalWrite(LED, HIGH);
+
+    // Stop the test, since we have now passed
+    stop_test();
   } else {
     Serial.println("FAILED");
     digitalWrite(LED, LOW);
@@ -151,6 +165,12 @@ void test_tick() {
 
     last_print_time = millis();
   }
+
+}
+
+/// Stop the test
+void stop_test() {
+  test_running = false;
 }
 
 // TODO:
