@@ -33,12 +33,12 @@
 
 // State variables
 bool at_pressure = false;
-int milliseconds_at_pressure = 0;
+int ticks_at_pressure = 0;
 bool result = false;
-
+bool test_running = false;
 // long test time
-unsigned long test_start = 0;
-unsigned long pressure_ok_start = 0;
+unsigned long test_start_millis = 0;
+unsigned long pressure_ok_millis = 0;
 unsigned long last_print_time = 0;
 
 void setup() {
@@ -57,11 +57,36 @@ void setup() {
 
   pinMode(LED, OUTPUT);
 
-
-  test_start = millis();
 }
 
 void loop() {
+  // Run update function for test
+  test_tick();
+
+  // Wait
+  delay(100);
+}
+
+/// Reset values of state variables
+void reset_state() {
+  test_running = false;
+  at_pressure = false;
+  ticks_at_pressure = 0;
+  result = false;
+  test_start_millis = 0;
+  pressure_ok_millis = 0;
+  last_print_time = 0;
+}
+
+void start_test() {
+  // Reset our state variables
+  reset_state();
+
+  // Record test start time
+  test_start_millis = millis();
+}
+
+void test_tick() {
   int raw = analogRead(PRESSURE_SENSOR);
 
   Serial.print("current pressure (voltage): ");
@@ -74,13 +99,12 @@ void loop() {
 #endif
     // Reset counter once pressure changes from below target to above target
     if (!at_pressure) {
-      milliseconds_at_pressure = 0;
+      ticks_at_pressure = 0;
       at_pressure = true;
-      pressure_ok_start = millis();
+      pressure_ok_millis = millis();
     } else {
       // Increment counter if at pressure
-      milliseconds_at_pressure += 1;
-
+      ticks_at_pressure += 1;
     }
 
   } else if (raw <= TARGET_PRESSURE_MIN) {
@@ -95,18 +119,18 @@ void loop() {
     at_pressure = false;
   }
 
-  Serial.print("milliseconds at pressure: ");//uncommented
-  Serial.println(milliseconds_at_pressure);//uncommented
+  Serial.print("ticks at pressure: ");//uncommented
+  Serial.println(ticks_at_pressure);//uncommented
 
-  unsigned long pressure_ok_millis = millis() - pressure_ok_start;
+  unsigned long pressure_ok_duration = millis() - pressure_ok_millis;
 
   // Update test result
   if (at_pressure) {
-    if (pressure_ok_millis > (TEST_TIME * 1000)) {
+    if (pressure_ok_duration > (TEST_TIME * 1000)) {
       result = true;
     }
   } else {
-    pressure_ok_millis = 0;
+    pressure_ok_duration = 0;
   }
 
   // Print result
@@ -121,15 +145,13 @@ void loop() {
 
   if (millis() - last_print_time >= SERIAL_PRINT_DELAY) {
     Serial.print ("Time since start:");
-    Serial.println((millis() - test_start) / 1000);
+    Serial.println((millis() - test_start_millis) / 1000);
     Serial.print ("Time at pressure:");
-    Serial.println(pressure_ok_millis / 1000);
+    Serial.println(pressure_ok_duration / 1000);
 
     last_print_time = millis();
   }
+}
 
-  // Wait one second
-  delay(100);
-  }
-
-  // Tone
+// TODO:
+// Tone
