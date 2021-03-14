@@ -165,6 +165,7 @@ void test_tick() {
   Serial.print("result: ");
   if (result) {
     Serial.println("PASSED");
+
     digitalWrite(LED, HIGH);
 
     // Stop the test, since we have now passed
@@ -195,4 +196,10 @@ void stop_test() {
 }
 
 // TODO:
+// Extra LEDs - Pass + Fail
+// Push button version - push to start
+// LCD
+// - Test result
+// - Waiting for input
+// Selectable
 // Tone
