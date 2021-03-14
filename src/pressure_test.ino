@@ -13,7 +13,8 @@
 #define PRESSURE_SENSOR A5
 #define PUMP_CONTROL 3
 #define SWITCH 2
-#define LED 4
+#define LED_GREEN 4
+#define LED_RED 5
 
 // Analog reading for target pressure
 // = 3.7/5.0 * 1024 (10-bit)
@@ -46,7 +47,8 @@ void setup() {
   Serial.begin(115200);
 
   pinMode(SWITCH, INPUT_PULLUP);
-  pinMode(LED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
   pinMode(PUMP_CONTROL, OUTPUT);
 }
 
@@ -165,14 +167,17 @@ void test_tick() {
   Serial.print("result: ");
   if (result) {
     Serial.println("PASSED");
-
-    digitalWrite(LED, HIGH);
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, HIGH);
 
     // Stop the test, since we have now passed
     stop_test();
   } else {
     Serial.println("FAILED");
-    digitalWrite(LED, LOW);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_RED, HIGH);
+
+    // Test will run indefinitely while failing
   }
 
   if (millis() - last_print_time >= SERIAL_PRINT_DELAY) {
