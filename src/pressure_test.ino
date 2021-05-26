@@ -14,9 +14,6 @@
 #define TARGET_PRESSURE 630 //758 is 3.7,      700 is 3.4179,        675.84 is 3.3      630 is 3.0v
 #define TARGET_PRESSURE_MIN 512      //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v
 
-// Test time for pass result (seconds)
-#define TEST_TIME 10
-
 // Cycle times in milliseconds
 #define WARMUP_TIME     10000 // 10s
 #define PRESSURIZE_TIME 10000 // 10s
@@ -25,6 +22,7 @@
 // State variables
 bool test_failed = false;
 bool test_reset = false;
+unsigned long start_time = 0; // used for timing in all states
 
 enum state_value {
   IDLE,
@@ -49,16 +47,16 @@ void setup() {
 
 void loop() {
   // Run tick functions appropriate to the current state value
-  if (state = IDLE) {
+  if (state == IDLE) {
     tick_idle();
   }
-  else if (state = WARMUP) {
+  else if (state == WARMUP) {
     tick_warmup();
   }
-  else if (state = PRESSURIZE) {
+  else if (state == PRESSURIZE) {
     tick_pressurize();
   }
-  else if (state = TEST) {
+  else if (state == TEST) {
     tick_test();
   }
 
@@ -218,7 +216,7 @@ void tick_test() {
   Serial.println((millis() - start_time) / 1000);
 
   // Test end condition (time elapsed)
-  if (mllis() - start_time >= TEST_TIME) {
+  if (millis() - start_time >= TEST_TIME) {
     end_test();
   }
 }
