@@ -5,7 +5,9 @@
 #define PUMP_CONTROL 4
 #define VALVE_CONTROL 13 // LED_BULTIN
 #define SWITCH 2
-#define LED 3
+#define LED_RED 3
+#define LED_GREEN 3
+#define LED_BLUE 3
 
 // Analog reading for target pressure
 // = 3.7/5.0 * 1024 (10-bit)          lowest pressure 1.54
@@ -30,9 +32,17 @@
 bool at_pressure = false;
 int ticks_at_pressure = 0;
 bool result = false;
-bool test_running = false;
 bool warmup_running = false;
 bool test_reset = false;
+
+enum state {
+  IDLE,
+  WARMUP,
+  PRESSURIZE,
+  TEST,
+};
+enum state current_state = IDLE;
+
 // long test time
 unsigned long test_start_millis = 0;
 unsigned long pressure_ok_millis = 0;
@@ -41,9 +51,10 @@ unsigned long warmup_start_time = 0;
 
 void setup() {
   Serial.begin(115200);
-
   pinMode(SWITCH, INPUT_PULLUP);
-  pinMode(LED, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
   pinMode(PUMP_CONTROL, OUTPUT);
   pinMode(VALVE_CONTROL, OUTPUT);
 }
@@ -91,15 +102,18 @@ void loop() {
   delay(100);
 }
 
-void start_test() {
-  // Record test start time
-  test_start_millis = millis();
-
-  // Turn on the pump
-  digitalWrite(PUMP_CONTROL, HIGH);
-
-  // Set test state variable
-  test_running = true;
+/// Reset values of state variables
+void reset_state() {
+  current_state = IDLE;
+  warmup_running = false;
+  test_reset = false;
+  at_pressure = false;
+  ticks_at_pressure = 0;
+  result = false;
+  test_start_millis = 0;
+  pressure_ok_millis = 0;
+  last_print_time = 0;
+  start_time = 0;
 }
 
 void start_warmup() {
@@ -107,7 +121,7 @@ void start_warmup() {
   reset_state();
 
   // Record test start time
-  warmup_start_time = millis();
+  start_time = millis();
 
   // Start Pumps
   digitalWrite(PUMP_CONTROL, HIGH);
@@ -118,32 +132,56 @@ void start_warmup() {
   Serial.println("ms");
 
   // Start warmup
-  warmup_running = true;
+  current_state = WARMUP;
 }
 
 void end_warmup() {
-  // Turn on the valve
-  digitalWrite(VALVE_CONTROL, HIGH);
-
   // Serial print
   Serial.println("Warmup finished");
 
   // Start test
+  start_pressure_cycle();
+
+  // Advance to next state
+  current_state = PRESSURIZE;
+}
+
+void start_pressure_cycle() {
+  Serial.println("Starting pressure cycle");
+
+  // Record test start time
+  start_time = millis();
+
+  // Turn on the valve
+  digitalWrite(VALVE_CONTROL, HIGH);
+}
+
+void end_pressure_cycle() {
+  Serial.println("Pressure cycle finished");
+
   start_test();
 }
 
-/// Reset values of state variables
-void reset_state() {
-  test_running = false;
-  warmup_running = false;
-  test_reset = false;
-  at_pressure = false;
-  ticks_at_pressure = 0;
-  result = false;
-  test_start_millis = 0;
-  pressure_ok_millis = 0;
-  last_print_time = 0;
-  warmup_start_time = 0;
+void start_test() {
+  // Record test start time
+  start_time = millis();
+
+  // Turn on the pump
+  digitalWrite(PUMP_CONTROL, HIGH);
+
+  // Set test state variable
+  state = TEST;
+}
+
+/// Stop the test
+
+  // Turn off the pump
+  digitalWrite(PUMP_CONTROL, LOW);
+
+  // Turn valve
+  digitalWrite(VALVE_CONTROL, LOW);
+
+  state = IDLE;
 }
 
 /// Do work for a running test
@@ -217,18 +255,6 @@ void test_tick() {
     last_print_time = millis();
   }
 
-}
-
-/// Stop the test
-void stop_test() {
-  // Update state
-  test_running = false;
-
-  // Turn off the pump
-  digitalWrite(PUMP_CONTROL, LOW);
-
-  // Turn valve
-  digitalWrite(VALVE_CONTROL, LOW);
 }
 
 // TO DO: Add digital output for ON/OFF valve
