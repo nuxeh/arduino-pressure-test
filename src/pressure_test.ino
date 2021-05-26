@@ -85,13 +85,14 @@ void start_warmup() {
   start_time = millis();
 
   // Serial print
-  Serial.print("Starting warmup");
+  Serial.println("Starting warmup");
 
   // Reset LEDs
   digitalWrite(LED_RED, LOW);
   digitalWrite(LED_GREEN, LOW);
 
   // Start Pumps
+  Serial.println("Turning pump ON");
   digitalWrite(PUMP_CONTROL, HIGH);
 
   // Update state
@@ -104,6 +105,7 @@ void start_pressurize() {
   Serial.println("Starting pressurization");
 
   // Turn on the valve
+  Serial.println("Turning valve ON");
   digitalWrite(VALVE_CONTROL, HIGH);
 
   // Update state
@@ -126,7 +128,7 @@ void end_warmup() {
 }
 
 void end_pressurize() {
-  Serial.print("Pressurization finished");
+  Serial.println("Pressurization finished");
 
   // Read and print the pressure reached
   int raw = analogRead(PRESSURE_SENSOR);
@@ -140,11 +142,13 @@ void end_test() {
   Serial.println("Test finished");
 
   // Turn off the pump
+  Serial.println("Turning pump OFF");
   digitalWrite(PUMP_CONTROL, LOW);
 
   delay(500);
 
   // Turn valve
+  Serial.println("Turning valve OFF");
   digitalWrite(VALVE_CONTROL, LOW);
 
   // Print result
@@ -207,9 +211,10 @@ void tick_test() {
   Serial.println(((float) raw / 1024.0) * 5.0);
 
   // If we are outside the minimum pressure, end the test
-  if (raw < TARGET_PRESSURE_MIN) {
+  if (raw > TARGET_PRESSURE_MIN) {
     test_failed = true;
     end_test();
+    return;
   }
 
   Serial.print ("Time since start: ");
