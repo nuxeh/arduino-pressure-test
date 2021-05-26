@@ -1,28 +1,19 @@
-//Start Switch in LOW
-/*vacuum pump test
-  Wait for the pressure to reach MIN. target pressure after starting the pump.
-  Once the target is reached, PUMP TURNS OFF, count the number of seconds elapsed while the
-  pressure is within the target pressure.
-  If at any point the pressure is outside the range, state is reset, and the
-  counter will start again ASWELL AS PUMP .
-*/
-
 #include <Arduino.h>
 
 // Pins
 #define PRESSURE_SENSOR A5
-#define PUMP_CONTROL 3
+#define PUMP_CONTROL 4
+#define VALVE_CONTROL 13 // LED_BULTIN
 #define SWITCH 2
-#define LED_GREEN 4
-#define LED_RED 5
+#define LED 3
 
 // Analog reading for target pressure
-// = 3.7/5.0 * 1024 (10-bit)
-#define TARGET_PRESSURE 675.84 //758 is 3.7, 700 is 3.4179, 675.84 is 3.3
-#define TARGET_PRESSURE_MIN 630 //630 is 3.0, 550 is 2.68
+// = 3.7/5.0 * 1024 (10-bit)          lowest pressure 1.54
+#define TARGET_PRESSURE 630 //758 is 3.7,      700 is 3.4179,        675.84 is 3.3      630 is 3.0v
+#define TARGET_PRESSURE_MIN 512      //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v
 
 // Test time for pass result (seconds)
-#define TEST_TIME 20
+#define TEST_TIME 10
 
 // Range enable
 #define RANGE_TEST 1
@@ -32,24 +23,29 @@
 // Serial print delay
 #define SERIAL_PRINT_DELAY 1000 // 1s
 
+// Warmup time in milliseconds
+#define WARMUP_TIME 10000 // 10s
+
 // State variables
 bool at_pressure = false;
 int ticks_at_pressure = 0;
 bool result = false;
 bool test_running = false;
+bool warmup_running = false;
 bool test_reset = false;
 // long test time
 unsigned long test_start_millis = 0;
 unsigned long pressure_ok_millis = 0;
 unsigned long last_print_time = 0;
+unsigned long warmup_start_time = 0;
 
 void setup() {
   Serial.begin(115200);
 
   pinMode(SWITCH, INPUT_PULLUP);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_RED, OUTPUT);
+  pinMode(LED, OUTPUT);
   pinMode(PUMP_CONTROL, OUTPUT);
+  pinMode(VALVE_CONTROL, OUTPUT);
 }
 
 void loop() {
@@ -57,6 +53,12 @@ void loop() {
   // (only if the state variable says the test is currently running)
   if (test_running) {
     test_tick();
+  }
+
+  if (warmup_running) {
+    if (millis() - warmup_start_time >= WARMUP_TIME) {
+      end_warmup();
+    }
   }
 
   // Test to see if the switch has been switched again to low, otherwise the
@@ -73,7 +75,7 @@ void loop() {
   // If so, we start the test
   else if (test_reset && digitalRead(SWITCH) == HIGH) {
     Serial.println("Starting pressure test...");
-    start_test();
+    start_warmup();
   }
 
   // Test is not running, and we have no switch input
@@ -90,22 +92,50 @@ void loop() {
 }
 
 void start_test() {
-  // Reset our state variables
-  reset_state();
-
   // Record test start time
   test_start_millis = millis();
 
   // Turn on the pump
   digitalWrite(PUMP_CONTROL, HIGH);
 
-  // Set test running state variable
+  // Set test state variable
   test_running = true;
+}
+
+void start_warmup() {
+  // Reset our state variables
+  reset_state();
+
+  // Record test start time
+  warmup_start_time = millis();
+
+  // Start Pumps
+  digitalWrite(PUMP_CONTROL, HIGH);
+
+  // Serial print
+  Serial.print("Warmup started at ");
+  Serial.print(warmup_start_time);
+  Serial.println("ms");
+
+  // Start warmup
+  warmup_running = true;
+}
+
+void end_warmup() {
+  // Turn on the valve
+  digitalWrite(VALVE_CONTROL, HIGH);
+
+  // Serial print
+  Serial.println("Warmup finished");
+
+  // Start test
+  start_test();
 }
 
 /// Reset values of state variables
 void reset_state() {
   test_running = false;
+  warmup_running = false;
   test_reset = false;
   at_pressure = false;
   ticks_at_pressure = 0;
@@ -113,6 +143,7 @@ void reset_state() {
   test_start_millis = 0;
   pressure_ok_millis = 0;
   last_print_time = 0;
+  warmup_start_time = 0;
 }
 
 /// Do work for a running test
@@ -128,10 +159,11 @@ void test_tick() {
   if (raw < TARGET_PRESSURE) {
 #endif
     // Reset counter once pressure changes from below target to above target
+    //5.21.21 Reset test once pressure changes from below target to above
     if (!at_pressure) {
       ticks_at_pressure = 0;
       at_pressure = true;
-      pressure_ok_millis = millis();
+      pressure_ok_millis = millis();  //why would millis begin if pressure is not in range?
     } else {
       // Increment counter if at pressure
       ticks_at_pressure += 1;
@@ -140,7 +172,7 @@ void test_tick() {
   } else if (raw <= TARGET_PRESSURE_MIN) {
     // Pressure has reached minimum level
     digitalWrite(PUMP_CONTROL, LOW);
-    at_pressure = false;
+    at_pressure = false;    //why at_pressure is false?
   } else {
     // Not in pressure range (above target)
     if (AUTO_PUMP) {
@@ -152,7 +184,7 @@ void test_tick() {
   Serial.print("ticks at pressure: ");//uncommented
   Serial.println(ticks_at_pressure);//uncommented
 
-  unsigned long pressure_ok_duration = millis() - pressure_ok_millis;
+  unsigned long pressure_ok_duration = millis() - pressure_ok_millis;  //pressure_inrange_duration
 
   // Update test result
   if (at_pressure) {
@@ -160,24 +192,20 @@ void test_tick() {
       result = true;
     }
   } else {
-    pressure_ok_duration = 0;
+    pressure_ok_duration = 0;  //
   }
 
   // Print result
   Serial.print("result: ");
   if (result) {
     Serial.println("PASSED");
-    digitalWrite(LED_RED, LOW);
-    digitalWrite(LED_GREEN, HIGH);
+    digitalWrite(LED, HIGH);
 
     // Stop the test, since we have now passed
     stop_test();
   } else {
     Serial.println("FAILED");
-    digitalWrite(LED_GREEN, LOW);
-    digitalWrite(LED_RED, HIGH);
-
-    // Test will run indefinitely while failing
+    digitalWrite(LED, LOW);       //add reset test go to idle
   }
 
   if (millis() - last_print_time >= SERIAL_PRINT_DELAY) {
@@ -198,13 +226,9 @@ void stop_test() {
 
   // Turn off the pump
   digitalWrite(PUMP_CONTROL, LOW);
+
+  // Turn valve
+  digitalWrite(VALVE_CONTROL, LOW);
 }
 
-// TODO:
-// Extra LEDs - Pass + Fail
-// Push button version - push to start
-// LCD
-// - Test result
-// - Waiting for input
-// Selectable
-// Tone
+// TO DO: Add digital output for ON/OFF valve
