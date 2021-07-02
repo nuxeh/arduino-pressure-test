@@ -12,7 +12,7 @@
 // Analog reading for target pressure
 // = 3.7/5.0 * 1024 (10-bit)          lowest pressure 1.54
 #define TARGET_PRESSURE 307.2   //758 is 3.7,      700 is 3.4179,        675.84 is 3.3,      630 is 3.0v
-//#define TARGET_PRESSURE_MIN 100   //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v   225.28 is 2.1v    307.2 is 1.5v      
+//#define TARGET_PRESSURE_MIN 100   //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v   225.28 is 2.1v    307.2 is 1.5v
 
 // Cycle times in milliseconds
 #define WARMUP_TIME     3000 // 3s
@@ -52,7 +52,7 @@ void setup() {
 void loop() {
   // Run tick functions appropriate to the current state value
   if (state == IDLE) {
-    tick_idle(); 
+    tick_idle();
   }
   else if (state == WARMUP) {
     tick_warmup();
