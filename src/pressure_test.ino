@@ -11,12 +11,12 @@
 
 // Analog reading for target pressure
 // = 3.7/5.0 * 1024 (10-bit)          lowest pressure 1.54
-#define TARGET_PRESSURE 630 //758 is 3.7,      700 is 3.4179,        675.84 is 3.3      630 is 3.0v
-#define TARGET_PRESSURE_MIN 512      //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v
+#define TARGET_PRESSURE 307.2   //758 is 3.7,      700 is 3.4179,        675.84 is 3.3,      630 is 3.0v
+//#define TARGET_PRESSURE_MIN 100   //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v   225.28 is 2.1v    307.2 is 1.5v      
 
 // Cycle times in milliseconds
-#define WARMUP_TIME     10000 // 10s
-#define PRESSURIZE_TIME 10000 // 10s
+#define WARMUP_TIME     3000 // 3s
+#define PRESSURIZE_TIME 2000 // 2s
 #define TEST_TIME       20000 // 20s
 
 // State variables
@@ -41,6 +41,10 @@ void setup() {
   pinMode(PUMP_CONTROL, OUTPUT);
   pinMode(VALVE_CONTROL, OUTPUT);
 
+  // Reset LEDs
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+
   // Entry point - start the idle state
   start_idle();
 }
@@ -48,7 +52,7 @@ void setup() {
 void loop() {
   // Run tick functions appropriate to the current state value
   if (state == IDLE) {
-    tick_idle();
+    tick_idle(); 
   }
   else if (state == WARMUP) {
     tick_warmup();
@@ -88,8 +92,8 @@ void start_warmup() {
   Serial.println("Starting warmup");
 
   // Reset LEDs
-  digitalWrite(LED_RED, LOW);
-  digitalWrite(LED_GREEN, LOW);
+  //digitalWrite(LED_RED, LOW);
+  //digitalWrite(LED_GREEN, LOW);
 
   // Start Pumps
   Serial.println("Turning pump ON");
@@ -118,6 +122,9 @@ void start_test() {
   // Turn on the LED
   digitalWrite(LED_BLUE, HIGH);
 
+  // Turn OFF Pumps
+  digitalWrite(PUMP_CONTROL, LOW);
+
   // Update state
   state = TEST;
 }
@@ -128,12 +135,12 @@ void end_warmup() {
 }
 
 void end_pressurize() {
-  Serial.println("Pressurization finished");
+  Serial.println("Pressurization finished, Now starting count");
 
   // Read and print the pressure reached
   int raw = analogRead(PRESSURE_SENSOR);
-  Serial.print("Raw pressure is: ");
-  Serial.println(raw);
+  Serial.print("Pressure is: ");
+  Serial.println(((float) raw / 1024.0) * 5.0);
 
   start_test();
 }
@@ -148,12 +155,12 @@ void end_test() {
   delay(500);
 
   // Turn valve
-  Serial.println("Turning valve OFF");
   digitalWrite(VALVE_CONTROL, LOW);
+  Serial.println("Valve turned OFF");
 
   // Print result
   Serial.print("Result: ");
-  if (!test_failed) {
+  if (test_failed) {
     Serial.println("FAILED");
     digitalWrite(LED_GREEN, LOW);
     digitalWrite(LED_RED, HIGH);
@@ -175,6 +182,10 @@ void tick_idle() {
   if (digitalRead(SWITCH) == LOW) {
     Serial.println("Now ready to start test");
     test_reset = true;
+
+    // Reset LEDs
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, LOW);
   }
 
   // Check to see if the switch is activated, and test has been reset
@@ -211,10 +222,13 @@ void tick_test() {
   Serial.println(((float) raw / 1024.0) * 5.0);
 
   // If we are outside the minimum pressure, end the test
-  if (raw > TARGET_PRESSURE_MIN) {
+  if (raw >= TARGET_PRESSURE) {
     test_failed = true;
     end_test();
-    return;
+
+/*    if (raw <= TARGET_PRESSURE) {
+      test_failed =
+    }*/
   }
 
   Serial.print ("Time since start: ");
@@ -224,4 +238,5 @@ void tick_test() {
   if (millis() - start_time >= TEST_TIME) {
     end_test();
   }
+
 }
