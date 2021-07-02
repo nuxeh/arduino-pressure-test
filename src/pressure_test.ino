@@ -225,6 +225,7 @@ void tick_test() {
   if (raw >= TARGET_PRESSURE) {
     test_failed = true;
     end_test();
+    return;
 
 /*    if (raw <= TARGET_PRESSURE) {
       test_failed =
