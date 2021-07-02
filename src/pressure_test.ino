@@ -10,8 +10,11 @@
 #define LED_BLUE        3
 
 // Analog reading for target pressure
+#define TARGET_PRESSURE 225 // 1.1V
+#define INITIAL_PRESSURE_LIMIT 41 // 0.2V
+
 // = 3.7/5.0 * 1024 (10-bit)          lowest pressure 1.54
-#define TARGET_PRESSURE 307.2   //758 is 3.7,      700 is 3.4179,        675.84 is 3.3,      630 is 3.0v
+//#define TARGET_PRESSURE 307.2   //758 is 3.7,      700 is 3.4179,        675.84 is 3.3,      630 is 3.0v
 //#define TARGET_PRESSURE_MIN 100   //630 is 3.0,     550 is 2.68       409.6 is 2.00v    512 is 2.5v   225.28 is 2.1v    307.2 is 1.5v
 
 // Cycle times in milliseconds
@@ -23,6 +26,7 @@
 bool test_failed = false;
 bool test_reset = false;
 unsigned long start_time = 0; // used for timing in all states
+int test_initial_pressure = 0;
 
 enum state_value {
   IDLE,
@@ -125,6 +129,17 @@ void start_test() {
   // Turn OFF Pumps
   digitalWrite(PUMP_CONTROL, LOW);
 
+  // Short delay to allow pump to turn off
+  delay(1000);
+
+  // Read and print the initial pressure
+  int raw = analogRead(PRESSURE_SENSOR);
+  Serial.print("Test initial pressure is: ");
+  Serial.println(((float) raw / 1024.0) * 5.0);
+
+  // Update state
+  test_initial_pressure = raw;
+
   // Update state
   state = TEST;
 }
@@ -223,6 +238,7 @@ void tick_test() {
 
   // If we are outside the minimum pressure, end the test
   if (raw >= TARGET_PRESSURE) {
+    Serial.println("Test failed due to minimum pressure requirement");
     test_failed = true;
     end_test();
     return;
@@ -230,6 +246,14 @@ void tick_test() {
 /*    if (raw <= TARGET_PRESSURE) {
       test_failed =
     }*/
+  }
+
+  // Check for within minium threshold of initial test pressure value
+  if (abs(raw - test_initial_pressure) > INITIAL_PRESSURE_LIMIT) {
+    Serial.println("Test failed due to divergence from initial test pressure");
+    test_failed = true;
+    end_test();
+    return;
   }
 
   Serial.print ("Time since start: ");
